@@ -2,8 +2,9 @@ import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 const GITHUB_API_BASE = 'https://api.github.com';
+const USER_AGENT = 'PrivateUpptimeProxy'; // Replace with your app name and version
 
-export const GET: RequestHandler = async ({ params, request, fetch }) => {
+export const GET: RequestHandler = async ({ params, fetch }) => {
   console.log('GET request received for raw content path:', params.path);
 
   const [owner, repo, branch, ...filePath] = params.path.split('/');
@@ -11,11 +12,15 @@ export const GET: RequestHandler = async ({ params, request, fetch }) => {
   const apiUrl = `${GITHUB_API_BASE}/repos/${owner}/${repo}/contents/${filePath.join('/')}?ref=${branch}`;
   console.log('Proxying to GitHub API URL:', apiUrl);
 
-  const headers = new Headers();
+  const headers = new Headers({
+    'User-Agent': USER_AGENT,
+    'Accept': 'application/vnd.github.v3+json'
+  });
 
   // Add Authorization header using Cloudflare secret
   const githubToken = import.meta.env.VITE_GITHUB_TOKEN;
   if (!githubToken) {
+    console.error('GitHub token is not set');
     throw error(500, 'GitHub token is not set');
   }
   headers.set('Authorization', `Bearer ${githubToken}`);
@@ -56,8 +61,9 @@ export const GET: RequestHandler = async ({ params, request, fetch }) => {
     const decodedContent = atob(data.content.replace(/\s/g, ''));
 
     // Create a new headers object
-    const responseHeaders = new Headers();
-    responseHeaders.set('Content-Type', contentType);
+    const responseHeaders = new Headers({
+      'Content-Type': contentType
+    });
 
     return new Response(decodedContent, {
       status: 200,
